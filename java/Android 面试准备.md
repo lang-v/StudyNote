@@ -2,6 +2,16 @@
 
 ### 计算机基础（通信UDP\TCP\IP 三次握手、四次挥手）
 
+#### OSI七层模型
+
+1. 应用层
+2. 表示层
+3. 会话层
+4. 传输层 ：TCP/IP TCP报文首部20字节、IP报文首部20字节、UDP首部8个字节
+5. 网络层
+6. 数据链路层
+7. 物理层
+
 #### UDP
 
 User Datagarm Protocol  用户数据报协议，位于OSI模型中的运输层
@@ -175,14 +185,14 @@ ACK —— 确认，使得确认号有效。 RST —— 重置连接（经常看
 
 ##### ColorInt
 
-表示颜色有(每一个字段对应2个比特，即表示一个完整的颜色需要8位二进制) aRGB （透明度（默认为FF）、红、绿、蓝）
+表示颜色有(每一个字段对应8个比特，即表示一个完整的颜色需要32位二进制 刚好就是一个int值) aRGB （透明度（默认为FF）、红、绿、蓝）
 
 ```java
 @ColorInt
 int color = 0x331122;
-int alpha = color>>6 & 0xFF; 	//获取透明度 FF
-int red = color>>4 & 0xFF; 		//获取红色 33
-int green = color>>2 & 0xFF;	//获取绿色 11
+int alpha = color>>24 & 0xFF; 	//获取透明度 FF
+int red = color>>16 & 0xFF; 		//获取红色 33
+int green = color>>8 & 0xFF;	//获取绿色 11
 int blue = color & 0xFF;		//获取蓝色 22
 ```
 
@@ -191,6 +201,10 @@ int blue = color & 0xFF;		//获取蓝色 22
 通过灵活使用位运算可以在一个小小的int身上保存多个状态，甚至可以通过异或运算做一些更加神奇的事情。
 
 ### java基础（单例synchronized、volatile、锁）
+
+#### Java 内存模型
+
+java中的每一个线程都拥有一自己的线程栈,
 
 #### 乐观锁
 
@@ -233,11 +247,13 @@ void function3(){
 
 #### synchronized锁升级过程
 
+锁只能升级不能降级，但是偏向锁可以重置为无锁状态。
+
 无锁 -> 偏向锁 -> 轻量级锁（自旋锁）-> 重量级锁
 
-
-
-
+- 偏向锁：即对第一次获取到锁的线程“偏向”，当这个线程销毁后，会发生重置，重置为无锁状态。
+- 轻量级锁：当偏向锁被其他线程尝试获取后，将会发生锁升级，也就是升级到轻量级锁。这个状态下没有获取到锁的线程，会发生自旋等待，这个过程是消耗CPU资源的。
+- 重量级锁：当自旋等待的线程数量达到一定的量，这个时候的自旋等待的性价比已经不高了，所以会产生锁升级。没有获取到锁的线程会进入等待队列中，阻塞，因为synchromized是非公平锁，当锁被释放后，大家又是随机获取到锁或者按照一定的优先级。
 
 #### volatile
 
@@ -294,6 +310,12 @@ ReentrantLock默认也是非公平锁，但是可以通过构造传参变成公�
 
 java中的“中断”：java没有提供直接中断线程的方法，而是提供了一种中断机制。线程A可以向线程B发出中断请求。
 
+#### 锁粗化
+
+#### 锁消除
+
+锁消除是指Java虚拟机在JIT编译时，通过对上下文的扫描，经过逃逸分析，去除不可能存在共享资源竞争的锁。通过这样的方式消除没有必要的锁，节省无意义的时间（锁的获取和释放所消耗的时间）
+
 #### HashMap
 
 首先要知道它线程不安全，相对应的HashTable是线程安全的，HashTable
@@ -323,6 +345,12 @@ HashMap的初始大小是16，并且注释写的是必须为2的次幂
 ### Android 基础（四大组件、Handler、Looper、View）
 
 #### Activity
+
+##### 启动过程
+
+![](https://user-gold-cdn.xitu.io/2018/6/22/1642579940cd4d82?imageslim)
+
+简单说就是将启动activity的消息发送到looper中，在
 
 ##### 生命周期
 
@@ -424,6 +452,10 @@ singleTask允许其他的activity与它在同一个task中共存，即在这个s
 它会创建一个工作线程来处理所有通过onStartCommand传递过来的intent，将intent放置到工作队列中，通过工作队列将intent一个一个发送给onHandleIntent。并且不需要主动调用stopSelf方法来结束自己，当intent处理完毕也就是工作队列为空时也就自动关闭服务了。
 
 **优点**：省去了手动创建工作线程的工作，不需要手动关闭。
+
+##### Binder
+
+跨进程通信，作用是：连接Service进程、Client进程、Service Manager的桥梁
 
 ##### 通信方式
 
@@ -548,6 +580,56 @@ sendBoradcast(intent)
 
 #### ContentProvider
 
+存储和获取数据的统一接口，可以在不同的应用程序间共享数据。
+
+使用前需要在清单文件中声明
+
+```xml
+// 提供provider的app
+<provider    
+    android:sharedUserId="con.sl.share"//通过设置sharedUserId,使得外部应用可以访问,外部应用需要添加这个sharedUserId才嗯那个正常访问
+          //可以添加相应权限
+    android:authorities="com.sl.contentprovidertest"  
+    android:name=".provider.TestProvider" />
+
+// 访问该provider的app
+<uses-permission android:name="com.sl.share"/> //添加权限才能访问
+```
+
+创建TestProvider继承ContentProvider虚类，实现其中的方法。
+
+此时便可以通过ContentResolver中的方法进行数据操作，Android中获取**ContentResolver**使用ContextWrapper中的getContentResolver方法.附上Activity的UML类图
+
+使用ContentResolver需要指定固定格式的Uri.
+
+格式如下:uri = content://authority/path/id
+
+例:
+
+authority = com.sl.contentprovidertest  应用包名
+
+path = book 数据库表名
+
+id =  2 表中的列数我猜的
+
+最后就是 content://com.sl.contentprovidertest/book/2
+
+#### LifeCycle
+
+LiveData
+
+观察者模式，获取绑定lifecycler感知view生命周期。当数据发生改变时能够直接将新的数据发送给订阅者。
+
+
+
+#### 自定义View
+
+##### onMeasure
+
+##### onLayout
+
+##### onDraw
+
 
 
 #### Handler
@@ -561,6 +643,12 @@ sendBoradcast(intent)
 查阅源代码后发现，postDelay第一步将传递进去的Runable r通过getPostMsg方法写入到一个Message对象中，再通过delayMillis=SystemClock.uptimeMillis() + delayMillis，将这个时间设置为系统当前时间加上需要延迟的时间即最终这个时间变成了应该调用Runable的时间，然后将这个Message对象放入MessageQueen中的位置，这个位置需要考虑时间（msg.when）;最后主线程的Looper.loop方法中，循环读取MessageQueen中的msg，在MessageQueen.next()中也是循环等待，当now >= msg.when时，这个msg就会被取出来并返回，这时loop方法中将会开始执行保存在msg中的callback，也就是最开始传递进去的Runable。
 
 
+
+#### Binder
+
+一个中间件，负责跨进程通信
+
+。。
 
 #### Android Touch事件的分发机制
 
@@ -585,6 +673,73 @@ sendBoradcast(intent)
 - Activity：拥有分发和消费两个方法。
 - ViewGroup：拥有分发、拦截和消费三个方法。
 - View：拥有分发、消费两个方法。
+
+#### Android中的内存泄露
+
+- 在Activity发生重建或者销毁时，某个地方持有该Activity的强引用，该引用没有得到及时的释放，此时Activity不会被系统gc回收掉。
+  - 另外发生重建的情况可能就是，Android手机发生了屏幕方向切换
+  - 销毁则可能就是正常退出
+
+引用可能出现的地方：
+
+1. 静态的Activity对象、view对象、context。静态对象贯穿应用程序的生命周期
+2. 单例类中持有以上对象的强引用，可以改为弱引用（为什么不用软引用，因为不能由我们控制，弱引用的话发生gc便可以确认它会被回收掉而软引用可能继续存在）
+3. 内部类和匿名类都会持有外部类的引用，改成静态内部类、静态匿名内部类就不会再持有引用。
+
+##### Handler引起内存泄露
+
+handler作为内部类存在于Activity中，内部类会持有外部类的引用，发送一条延迟消息，然后销毁activity，此时MessageQueue中的Msg村存在一个匿名类Runable，它持有handler的引用，而handler又持有activity的引用，导致内存泄露。
+
+**解决办法** hanlder作为静态内部类，然后持有一个activity的弱引用。或者直接将hanlder放到单独文件中。
+
+#### Android中的ANR
+
+##### 说明
+
+ANR是一个问题，即主线程无法正常处理用户的输入事件或者绘制操作，引起用户不满。
+
+![](https://developer.android.com/topic/performance/images/anr-example-framed.png?hl=zh-cn)
+
+
+
+##### 触发情况
+
+1. Activity位于前台时，主线程在5秒内没有响应用户的输入事件或者BroadcastReceiver（即接收到广播后长时间没有返回）
+2. Activity位于后台时，BroadcastReceiver 长时间没有返回
+
+**注意** 如果用户没有输入，就算主线程在执行延时操作也不会发生ANR，因为没有输入事件主线程也不需要去响应用户的输入。
+
+***
+
+##### 诊断
+
+需要考虑的情况：
+
+- 在主线程中存在耗时操作、I/O操作（时间过长）
+- 主线程阻塞，存在一个等待同步调用的代码块
+- 主线程对另一个进程同步一个binder调用，但是后者需要很长时间返回
+- 主线程对进程进行binder调用时与另一个线程发生死锁，死锁状态下主线程阻塞。
+
+总的来说就是主线程发生了阻塞或者等待时间过长导致的ANR
+
+##### 辅助定位问题代码
+
+1. 使用StrictMode
+
+```java
+//通过两个Builder设置需要检测的问题，会在控制台打印
+StrictMode.setThreadPolicy(new StrictMode.ThreadPolicy.Builder().detectAll().build());
+StrictMode.setVmPolicy(new StrictMode.VmPolicy.Builder().detectLeakedSqlLiteObjects().build());
+//通过penaltyDeath（检测到问题后Crash整个进程）等方法可以更加直观的定位错误代码
+```
+
+2. TraceView
+
+废弃
+
+3. AndroidStudio 性能分析工具 Profiler
+
+可以直观的看到app运行时对各方面资源的消耗情况。具体方法耗时？
 
 
 
