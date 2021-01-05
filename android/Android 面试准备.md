@@ -157,6 +157,24 @@ ACK —— 确认，使得确认号有效。 RST —— 重置连接（经常看
 
 #### 位运算&二进制
 
+##### 原码、反码、补码
+
+###### 原码
+
+就是符号位加上这个数的绝对值的二进制表示
+
+###### 反码
+
+正数即为原码
+
+负数即符号位不变，其余位取反
+
+###### 补码
+
+正数为原码
+
+负数为其反码加1
+
 ##### 基础运算
 
 1. 与 & 
@@ -177,7 +195,7 @@ ACK —— 确认，使得确认号有效。 RST —— 重置连接（经常看
 
    规则：相异则为1
 
-4. 左移 << 、右移>>
+4. 左移 << 、右移>>、无符号右移>>>
 
    1001 0010 >> 2 = 0010 0100 空位由0填充
 
@@ -202,9 +220,45 @@ int blue = color & 0xFF;		//获取蓝色 22
 
 ### java基础（单例synchronized、volatile、锁）
 
+#### java中的几个修饰符
+
+1. public 权限最大，可以被任意类访问。
+2. private 常用来修饰属性，封装的一种体现，被修饰者只由本类能访问。
+3. protected 被修饰者可以被子类、和同一个包中的类访问。
+4. default 就是默认情况（即没有用上面三个修饰符去修饰的时候），同一个包中的类和自身可以访问。
+
+![](https://img-blog.csdn.net/20170527154942485?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveG1jMjgxMTQxOTQ3/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast)
+
+
+
+需要注意的一点就是：Java的访问控制停留在编译层，可以通过**反射**访问任何类的任何成员。
+
 #### Java 内存模型
 
 java中的每一个线程都拥有一自己的线程栈,
+
+#### Java线程和系统线程
+
+1. 在jdk1.2之前，java的线程被称为绿色线程；该线程的调度完全在用户态实现，即这些进程同时运行在操作系统的一个进程中，而这个进程由系统进行调度。
+
+   优点：
+
+   - 即使系统不支持线程，也可以通过自身实现的线程调度器，在用户态实现多线程。
+   - 线程的调度只在用户态，减少了系统从内核态到用户态切换的开销 //这里没太懂
+
+   缺点：
+
+   - 由于多线程实现在用户态，那么从系统的角度来看，只能感知到进程的存在，即这个进程只有一个线程，实则由自身实现的多线程运行在这个进程中，如果其中一个线程发生了阻塞（不释放CPU），因为用户空间没有**时钟中断机制**，这将会阻塞整个进程。
+
+2. jdk1.2及之后的版本
+
+现在的java线程的本质就是操作系统中的线程，在Linux上基于pthread库实现的`轻量级进程`，在windoes上是依靠的`win32 api`提供系统调用从而实现多线程。
+
+这里的轻量级进程就是用户线程和内核线程之间的桥梁，应该可以说是提供了访问内核线程的高级接口。在Liunx上轻量级进程和内核线程是一一对应的也就是一对一模型。
+
+#### 线程池
+
+需要知道线程是
 
 #### 乐观锁
 
@@ -626,9 +680,42 @@ LiveData
 
 ##### onMeasure
 
+由父级布局调用用于确认该view的大小，以分配合适的空间来装下这个view。
+
+函数定义如下：
+
+```kotlin
+fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int)
+```
+
+`widthMeasureSpec` 和 `heightMeasureSpec` 两个参数可以通过`MeasureSpec` 获取其内容
+
+- MeasureSpec.getSize(Int)  获取长度
+- MeasureSpec.getMode(Int) 获取对应模式
+
+即每个Int参数中存储了长度和模式，其中模式分为三种
+
+1. AT_MOST 此模式下view的大小为任意但是不能超过给定的界限通过MeasureSpec.getSize(Int)获取界限；
+2. EXACTLY 此模式下view的大小由父级布局决定，即大小为给定的界限；
+3. UNDEFINED 此模式下没有任何限制，view可以为任意大小；
+
+测量完毕后再该函数末尾调用`setMeasuredDimension` 保存测量的高度和宽度
+
+```kotlin
+setMeasuredDimension(wantWidth, wantHeight)
+```
+
 ##### onLayout
 
+用于确定子view在父级布局中的位置，left、right、top、bottom。自定义view的话时不需要去实现这个的，在viewgroup中需要去实现。
+
+##### layout
+
+父级布局在onLayout中给每个子view设置位置，通过layout方法设置，将会传入left、right、top、bottom四个值。而在view的layout实现中，通过setFrame将四个参数进行保存。
+
 ##### onDraw
+
+view的绘制都发生在这里。
 
 
 
@@ -747,6 +834,8 @@ StrictMode.setVmPolicy(new StrictMode.VmPolicy.Builder().detectLeakedSqlLiteObje
 
 ### Android开发中常用的设计模式
 
+##### 常用设计模式
+
 1. 单例模式（双重检查、IoDH）
 
 2. 创建者模式：某个类需要用户传入大量的数据，这时如果有一个链式调用的Builder，将会简化很多工作。
@@ -763,7 +852,10 @@ StrictMode.setVmPolicy(new StrictMode.VmPolicy.Builder().detectLeakedSqlLiteObje
 
 5. 代理模式：通过引入代理对象的方法来简介访问目标对象，防止直接访问目标对象给系统带来的不必要复杂性。
 
-   
+##### 设计模式的设计原则
+
+1. 单一职责原则
+2. 
 
 ### 项目中可能会问到的问题
 
