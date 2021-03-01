@@ -220,6 +220,20 @@ int blue = color & 0xFF;		//获取蓝色 22
 
 ### java基础（单例synchronized、volatile、锁）
 
+#### 类加载
+
+注意变量初始化顺序
+
+![](https://img-blog.csdn.net/20160504235346278?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center)
+
+##### （双亲委派模型）
+
+**作用**：避免在内存中出现两份相同的字节码
+
+在子级类加载器需要加载一个类的时候优先委托给父级类加载器（一级一级往上委托），最终如果顶级类加载器也无法加载此类，就交由子级类加载器处理。
+
+
+
 #### java中的几个修饰符
 
 1. public 权限最大，可以被任意类访问。
@@ -235,7 +249,29 @@ int blue = color & 0xFF;		//获取蓝色 22
 
 #### Java 内存模型
 
-java中的每一个线程都拥有一自己的线程栈,
+java中的每一个线程都拥有一自己的线程栈（工作内存）。工作内存中存有主存中的变量副本，对变量的读写操作均发生在副本上，不同线程之间不能直接互相访问对方的工作内存，（通信）需要通过主存来实现。
+
+java内存模型是一系列的规则，保证了并发时的线程可见性。Happens-before可见性原则，
+
+具体的规则如下：
+
+1. 程序次序规则：一个线程内，按照代码顺序，书写在前面的操作先行发生与书写在后面的操作。【保证单线程的有序】
+
+2. 锁定规则：一个 unlock 操作先行发生于后面对同一个锁的 lock 操作。
+
+3. volatile 变量规则：对一个变量的写操作先行发生于后面对这个变量的读操作。【先写后读】
+
+4. 传递规则：A 先于 B 且 B 先于 C 则 A 先于 C
+
+5. 线程启动规则：Thread 对象的 start 方法先行发生于此线程的每一个动作。
+
+6. 线程中断规则：对线程 interrupt 方法的调用先行发生于被中断线程的代码检测到中断事件的发生。【先中断，后检测】
+
+7. 线程终结规则：线程中所有的操作都先行发生于线程的终止检测，我们可以通过 Thread.join() 方法结束，Thread.isAlive() 的返回值手段检测线程已经终止执行。
+
+8. 对象终结规则：一个对象的初始化完成先行发生于它的 finalize 方法的开始。
+
+如果两个操作的执行顺序不能通过 happens-before 原则推导出来，就不能保证他们的执行次序，虚拟机就可以随意的对他们进行**重排序**(通过volatile避免指令重排序)。
 
 #### Java线程和系统线程
 
@@ -258,7 +294,14 @@ java中的每一个线程都拥有一自己的线程栈,
 
 #### 线程池
 
-需要知道线程是
+管理线程。
+
+优点：
+
+- 降低资源消耗
+- 提高响应速度
+- 可管理性：统一管理所有线程资源，申请匿名的newThread不方便管理。
+- 提供延迟、定时执行，一般都拥有一个任务队列。
 
 #### 乐观锁
 
@@ -641,7 +684,7 @@ sendBoradcast(intent)
 ```xml
 // 提供provider的app
 <provider    
-    android:sharedUserId="con.sl.share"//通过设置sharedUserId,使得外部应用可以访问,外部应用需要添加这个sharedUserId才嗯那个正常访问
+    android:sharedUserId="con.sl.share"//通过设置sharedUserId,使得外部应用可以访问,外部应用需要添加这个sharedUserId才能正常访问
           //可以添加相应权限
     android:authorities="com.sl.contentprovidertest"  
     android:name=".provider.TestProvider" />
@@ -674,7 +717,21 @@ LiveData
 
 观察者模式，获取绑定lifecycler感知view生命周期。当数据发生改变时能够直接将新的数据发送给订阅者。
 
+#### AIDL
 
+Android Interface Description Language
+
+用于跨进程通信
+
+在方法中传递的参数需要继承于Parcelable，且需要将用到的类卸载aidl文件中。同时需要用in、out、inout三个关键字修饰；默认使用in修饰
+
+- in： 参数由客户端发送到服务端，且服务端更改后无法传递会客户端
+- out：参数由服务端修改后发回给客户端，服务端接收到的对象的参数是null，但是对此变量修改后客户端是可以接收到的
+- inout：集合了in、out的功能
+
+#### Binder
+
+一个中间件，负责跨进程通信
 
 #### 自定义View
 
@@ -731,12 +788,6 @@ view的绘制都发生在这里。
 
 
 
-#### Binder
-
-一个中间件，负责跨进程通信
-
-。。
-
 #### Android Touch事件的分发机制
 
 触摸事件对应的是`MotionEvent`类，对应的Touch事件主要有三个：
@@ -792,7 +843,7 @@ ANR是一个问题，即主线程无法正常处理用户的输入事件或者�
 ##### 触发情况
 
 1. Activity位于前台时，主线程在5秒内没有响应用户的输入事件或者BroadcastReceiver（即接收到广播后长时间没有返回）
-2. Activity位于后台时，BroadcastReceiver 长时间没有返回
+2. Activity位于后台时，BroadcastRece iver 长时间没有返回
 
 **注意** 如果用户没有输入，就算主线程在执行延时操作也不会发生ANR，因为没有输入事件主线程也不需要去响应用户的输入。
 
@@ -852,10 +903,27 @@ StrictMode.setVmPolicy(new StrictMode.VmPolicy.Builder().detectLeakedSqlLiteObje
 
 5. 代理模式：通过引入代理对象的方法来简介访问目标对象，防止直接访问目标对象给系统带来的不必要复杂性。
 
-##### 设计模式的设计原则
+##### 设计模式的六大原则
 
 1. 单一职责原则
-2. 
+
+2. 里氏替换原则
+
+   基类可以出现的地方，衍生类一定可以替换他。衍生类应该尽量避免去重写基类的方法，应该在基类的基础上开发新功能即可。
+
+3. 依赖倒置原则
+
+   依赖于抽象不依赖于具体，不直接使用具体类，而是于具体类的上层接口交互。
+
+4. 接口隔离原则
+
+   每个接口中不存在子类用不到却必须实现的方法，如果存在就需要将接口拆分，使用多个隔离的接口。
+
+5. 最少知道原则
+
+   一个类对自己需要
+
+6. 合成复用原则
 
 ### 项目中可能会问到的问题
 
@@ -869,6 +937,3 @@ StrictMode.setVmPolicy(new StrictMode.VmPolicy.Builder().detectLeakedSqlLiteObje
 
    1. 使用了MVVM设计模式：配合databinding做到view和model同步变化，只要数据正确view就正确，很方便。
    2. 利用Google的嵌套滑动组件实现了一个横向和纵向 下拉刷新上拉加载的组件继承LinearLayout，在处理嵌套滑动前判断是否满足父级view滑动的条件，满足则在onStartNestedScroll，然后再后续的onNestedPreScroll中处理滑动事件。
-
-
-
