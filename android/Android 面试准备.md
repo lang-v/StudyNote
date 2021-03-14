@@ -1112,7 +1112,28 @@ CPU调度和分派的基本单位
 
 Kotlin协程本质是一个线程框架，属于无栈协程。
 
+#### 启动模式
 
+- DEFAULT 默认模式，协程创建后立即开始调度，如果协程调度前被取消会直接进入取消响应。
+- ATOMIC 协程创建后，立即开始调度，直到第一个挂七点之前不响应取消。
+- LAZY 只有协程被需要时，才会开始调度。调度前被取消直接进入异常结束状态。
+- UNDISPATCHED 协程创建后立即在当前函数调用栈内执行，直到遇到第一个真正的挂起点。
+
+#### 协程的调度器
+
+官方给出了四个调度器，可以通过Dispatchers访问。
+
+- Default ：默认调度器，适合后台任务处理，属于CPU密集型任务调度器
+
+- IO ： IO调度器，IO密集型任务调度器
+
+- Main ： UI调度器，根据平台不同会被初始化为对应的UI线程调度器
+
+- Unconfined ： “无所谓” 调度器，不要求协程在特定线程执行，**在挂起点恢复执行时会直接在恢复线程直接执行**
+
+  *如果嵌套以它为调度器的协程，那么这些协程会在启动时被调度到协程框架内部的事件循环上，以免出现**StackOverflow***
+
+  
 
 ##### 挂起函数（suspend）
 
@@ -1120,9 +1141,129 @@ Kotlin协程本质是一个线程框架，属于无栈协程。
 
 在函数执行完毕后切换回原来的线程。通过阻塞式的写法来实现非阻塞式的操作。
 
-
-
 ##### 协程状态
+
+1. 创建，初始化状态，可有可无
+2. 未完成，代码块处于运行中或者未运行
+3. 已取消，代码块执行中被取消，可取消后回调invokenOnCancel
+4. 已完成，代码块顺利执行完毕，可在完成后回调invokeOnCompletion
+
+##### 热数据通道 Channel
+
+`Channel<?>`  是一个接口。存在四种模式。
+
+##### （通道内缓存区容量大小 ）四种模式 
+
+1.  `UNLIMITED` 不做限制，缓冲区无限大，**但是不能用于广播通道**
+2. `RENDEZVOUS` 容量为0，意为不见不散，没有出现receive时send方法始终处于挂起状态，**同样不能用于广播通道**
+3. `CONFLATED` 意为合并，但实际是后者覆盖前者，接收到的内容为最后的内容
+4. `BUFFERED` 默认容量为64，此大小可以修改
+
+##### 常用通道
+
+模型为一对一。一个发送端一个接收端。
+
+1. SendChannel
+
+   - 创建：需要在内部通过receiver获取发送来的数据
+
+   ```kotlin
+   val sendChannel:SendChannel<Int> = GlobalScope.actor{
+       while (true){
+           println("receiver data <${receive()}>")//接收数据
+       }
+   }
+   ```
+
+   - 发送 send（）
+
+   ```kotlin
+   sendChannel.send(it)
+   ```
+
+   - 接收 receive()
+
+   ```kotlin
+   ActorScope.receive()
+   ```
+
+2. ReceiverChannel
+
+   - 创建：
+
+   ```kotlin
+   val receiverChannel:ReceiveChannel<Int> = GlobalScope.produce {
+       send(0)//发送数据
+   }
+   ```
+
+   两者都是一样的。
+
+3. 关闭
+
+   1. producer和actor返回的Channel都会随着对应协程执行完毕而关闭。
+
+   2. 调用close方法也会立即关闭。
+
+   3. 不及时的关闭通道，虽然不会导致系统资源的泄露，但是会让接收端（`receive()`）一直处于等待状态.
+
+> 注意：**Channel** 的数据发送时调用`sned(Element)`方法，数据发送出去直到被接收才能进行下一步发送，等待的过程send方法处于挂起状态；当然receive()方法也是一直处于挂起等待状态。
+
+##### BroadcastChannel
+
+一对多，一个发送端多个接收端。
+
+> 发送的数据如果没有接收者会**直接丢弃**
+
+```kotlin
+    val broadcastChannel = BroadcastChannel<Int>(Channel.CONFLATED)//创建通道
+	/*
+	* 创建方法2
+	* val channel = Channel<Int>()
+	* channel.broadcast(value) //value 控制缓存区容量
+	*/
+    GlobalScope.launch {
+        List(3) {
+            delay(100)
+            broadcastChannel.send(it)
+        }
+        delay(1000)
+        broadcastChannel.close()
+    }
+
+    val r = broadcastChannel.openSubscription()
+    List(3) {
+        GlobalScope.launch {
+            val r = broadcastChannel.openSubscription()
+            for (i in r) {
+                delay(50)
+                println("$it broadcast receive $i")
+            }
+        }
+    }.joinAll()//创建三个job去接收通道数据
+    GlobalScope.launch {
+        delay(100)
+        println("finally receive ${r.receiveOrClosed()}")//由于使用的CONFLATED，最后接收到的是2
+    }.join()
+
+//结果如下
+1 broadcast receive 0
+0 broadcast receive 0
+2 broadcast receive 0
+0 broadcast receive 1
+2 broadcast receive 1
+1 broadcast receive 1
+2 broadcast receive 2
+0 broadcast receive 2
+1 broadcast receive 2
+finally receive Value(2)
+```
+
+
+
+##### 冷数据流 Flow
+
+与热通道的特性相反
 
 
 
