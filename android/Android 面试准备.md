@@ -359,7 +359,7 @@ Suvivor的两个块，必须保持一块为空的。每次对年轻代进行垃�
 
 需要注意的一点就是：Java的访问控制停留在编译层，可以通过**反射**访问任何类的任何成员。
 
-#### Java 内存模型
+#### Java 内存模型&Java 内存结构
 
 ![](https://pic3.zhimg.com/80/v2-041214d71e6d0fec4dfa8e30b5731546_720w.jpg)
 
@@ -451,7 +451,7 @@ java内存模型是一系列的规则，保证了并发时的线程可见性。H
 
 ##### 避免死锁的办法
 
-尽力的去避免这四个条件
+尽力的去避免这四个条件，当然互斥条件是无法避免的。
 
 #### synchronized
 
@@ -943,6 +943,17 @@ view的绘制都发生在这里。
 
 查阅源代码后发现，postDelay第一步将传递进去的Runable r通过getPostMsg方法写入到一个Message对象中，再通过delayMillis=SystemClock.uptimeMillis() + delayMillis，将这个时间设置为系统当前时间加上需要延迟的时间即最终这个时间变成了应该调用Runable的时间，然后将这个Message对象放入MessageQueen中的位置，这个位置需要考虑时间（msg.when）;最后主线程的Looper.loop方法中，循环读取MessageQueen中的msg，在MessageQueen.next()中也是循环等待，当now >= msg.when时，这个msg就会被取出来并返回，这时loop方法中将会开始执行保存在msg中的callback，也就是最开始传递进去的Runable。
 
+#### 导致内存泄露
+
+我认为有两种情况：
+
+1. 在Activity中使用非静态内部类的Handler，当使用`handler.sendMessageDelayed()`,消息还没有执行，此时Activity被销毁，MQ中的msg持有此Handler对象，Handler对象持有外部类引用（即Activity），导致内存泄露。
+2. 调用`Handler.postDelayed(Runable)、postDelayed(Runable)` 发送延时消息，此处Runable得分情况如果是一个位于Activity类中的匿名内部类，那么它是持有Actiovity引用的，此时若是Activity销毁，则会导致内存泄露。
+
+#### view.postDelayed(Runable)发生了什么
+
+实际的调用链为 `mAttachInfo.mHandler.postDelayed(runable,delayMills)` 实际还是使用handler将runable包装成message放入MQ，在Looper.loop中读取message，发现callback不为空，将会调用`callback.run()`
+
 
 
 #### Android Touch事件的分发机制
@@ -994,7 +1005,7 @@ handler作为内部类存在于Activity中，内部类会持有外部类的引�
 
 ANR是一个问题，即主线程无法正常处理用户的输入事件或者绘制操作，引起用户不满。
 
-![](https://developer.android.com/topic/performance/images/anr-example-framed.png?hl=zh-cn)
+![](https://developer.android.com/topic/performance/images/anr-example-framed.png)
 
 
 
@@ -1037,7 +1048,28 @@ StrictMode.setVmPolicy(new StrictMode.VmPolicy.Builder().detectLeakedSqlLiteObje
 
 可以直观的看到app运行时对各方面资源的消耗情况。具体方法耗时？
 
+#### Android中的跨进程通信
 
+1. Intent ，例：activity中打开拨打电话的界面，Uri.parse("tel:10086")
+2. Content provider，提供一种在多个程序之间数据共享的方式
+3. Broadcast ，广播属于单方向的发送广播，接收者只能接收广播，并不能直接与发送者沟通
+4. Service，通过Aidl 通信
+5. Socket，在本地建立连接，达到跨进程通信
+
+> 前四种都是通过**Binder**来实现。
+
+#### Android 中的注解@Hide
+
+此注解标识的方法不可访问。
+
+在build.gradle中配置compileSdkVersion 30，就会把位于$Android_SDK$/platform/android-30/下的android.jar 加入编译时类路径。
+
+这个jar称为编译时jar，不会被打包到应用中去。这个jar包有两个特点：
+
+1. 不包含具体的方法实现
+2. 不包含被@hide标记的类或成员
+
+在打包时将一个具有@hide标记的类或成员的android.jar链接到应用中去。
 
 ***
 
@@ -1148,9 +1180,11 @@ Kotlin协程本质是一个线程框架，属于无栈协程。
 3. 已取消，代码块执行中被取消，可取消后回调invokenOnCancel
 4. 已完成，代码块顺利执行完毕，可在完成后回调invokeOnCompletion
 
-##### 热数据通道 Channel
+##### 热数据通道 Channel（并发安全）
 
-`Channel<?>`  是一个接口。存在四种模式。
+`Channel<?>`  是一个接口。当没有订阅者的时候也会在通道内发送数据。
+
+缓存容量存在四种模式。
 
 ##### （通道内缓存区容量大小 ）四种模式 
 
@@ -1263,7 +1297,9 @@ finally receive Value(2)
 
 ##### 冷数据流 Flow
 
-与热通道的特性相反
+与热通道的特性相反，没有订阅者时不会发送数据。StateFlow是热数据流即没有订阅依然会发送数据。
+
+可以从通道中获取Flow。
 
 
 
@@ -1305,8 +1341,6 @@ finally receive Value(2)
 1. 内存缓存，正在使用的图片采用弱引用缓存，使用完成后使用Lru缓存（软引用，采用LinkedListMap实现，依据使用次数排序，当内存不足时，删除使用得最少得图片引用）
 2. 磁盘缓存，默认缓存使用过的分辨率图片，使用DiskLruCache来做磁盘缓存
 
-
-
 #### MVVM 和 MVP的优劣对比
 
 ##### MVP
@@ -1328,7 +1362,29 @@ finally receive Value(2)
 2. ViewModel：因为设备操作发生Activity重建时，无须从Model中再次加载数据，减少了IO操作
 3. DataBinding：减少了模板代码的编写，通过view和数据的双向绑定同步更新，减少了代码量。
 
-#### 经典蓝牙和低功耗蓝牙的区别
+#### android 加载超大图片
+
+使用BitmapRegionDecoder去显示你需要的那部分内容。
+
+##### BitmapREgionDecoder 无损加载（当然可以通过设置Bitmap.Config.RGB_565等等）
+
+提供一个从inputStream读取图片的接口，显示你需要的图片部分。
+
+##### BitmapFactory 加载缩略图
+
+对图片宽高进行压缩。通过设置BitmapOptions.inJustDecoderBounds = true；使得图片不被加载到内存中去并且我们可以拿到图片信息。
+
+
+
+
+
+### 版本管理工具Git
+
+1. merge 和 rebase有什么区别？
+
+   merge通过新建一个节点把两个分支的内容合并成一个分支；rebase把其他分支的提交直接并到合并分支上，看起来就是一条直线。
+
+### 经典蓝牙和低功耗蓝牙的区别
 
 1. 经典蓝牙的连接周期大概是几百毫秒，低功耗蓝牙的连接周期仅有3毫秒左右。
 2. 低功耗蓝牙使用非常短的数据包，用于实时性较高且数据速率较低的场景，经典蓝牙的数据包长度较长，用于传输数据量大的数据。
