@@ -1368,7 +1368,7 @@ finally receive Value(2)
 
 #### Rxjava & RxAndroid
 
-
+响应式编程，现在已经可以通过Kotlin 协程来往完全替代
 
 #### 协程与线程的区别
 
