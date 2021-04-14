@@ -252,6 +252,14 @@ int blue = color & 0xFF;		//获取蓝色 22
 
 通过灵活使用位运算可以在一个小小的int身上保存多个状态，甚至可以通过异或运算做一些更加神奇的事情。
 
+### C++
+
+#### 结构体
+
+- 内存计算
+
+  ？？？？？
+
 ### java基础
 
 #### Java 泛型
@@ -632,7 +640,7 @@ HashMap的初始大小是16，并且注释写的是必须为2的次幂
 
 #### 线程池
 
-`ThreadPoolExecutor`  
+`ThreadPoolExecutFor`  
 
 **优点**：相比于随处new Thread(runable)去执行任务，使用线程池将会使得线程更加容 易控制，且提高效率，减少了性能损耗。
 
@@ -640,6 +648,12 @@ HashMap的初始大小是16，并且注释写的是必须为2的次幂
 - 最大线程数量
 - 等待队列
 - 活跃时间
+
+#### ThreadLocal
+
+此变量会在每个Thread中创建一个副本，通过键值对的形式保存在ThreadLocalMap中（Entry\<WeakReference\<ThreadLocal>,value>）。
+
+通过弱引用持有ThreadLocal避免ThreadLocal无法正常释放。
 
 ### Android 基础（四大组件、Handler、Looper、View）
 
@@ -1368,7 +1382,7 @@ finally receive Value(2)
 
 #### Rxjava & RxAndroid
 
-响应式编程，现在已经可以通过Kotlin 协程来往完全替代
+响应式编程，现在已经可以通过Kotlin 协程来往完全替代；用来解决CallbackHell
 
 #### 协程与线程的区别
 
@@ -1551,4 +1565,9 @@ Https 有一个ssl加密技术
 
    - 使用快慢指针将链表分为两部分，将后半部分链表逆转，逐一与前段比较，出现差异就说明不是回文。
 
-   
+
+
+
+# 计算机基础
+
+在字节跳动第三轮面试被问到了一些关于计算机组成原理、计算机网络、计算机操作系统、汇编原理等方面的知识
